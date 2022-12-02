@@ -1,3 +1,9 @@
+# for python
+.DS_Store
+__pycache__
+cache/
+
+# for haskell
 dist
 dist-*
 cabal-dev
