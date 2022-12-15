@@ -20,6 +20,8 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- text
+- bytestring
 
 ghc-options:
 - -Wall
@@ -36,7 +38,7 @@ library:
   source-dirs: src
 
 executables:
-  astar-exe:
+  seq:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -50,7 +52,7 @@ executables:
       other-modules: Paths_astar
 
 tests:
-  astar-test:
+  seq-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:

@@ -1,0 +1,37 @@
+Name: Donghan Kim
+Uni: dk3245
+
+Collaborators:
+
+References:
+http://gbacon.blogspot.com/2007/08/word-ladder-in-haskell.html (for wordLadder)
+
+-----------------------------
+
+COMS 4995 002 Parallel Function Programming
+
+Homework 4
+
+Due at 11:59 PM Sunday, November 6th, 2022
+
+Edit this file, wordFreq.hs, and wordLadder.hs, combine them in
+a .zip file (no subdirectories, please), and upload it to Courseworks.
+Do not rename the files.
+
+Above, include your name, UNI, list of people with whom your spoke about the
+assignment, and online references your consulted.
+
+Write your code alone.  You many consult the instructor, TAs, and other
+students, but do not copy/modify other's code.
+
+-----
+
+Grading: 60% correctness: first and foremost, it needs to be correct
+         30% style: is it readable, functional, concise?
+	 10% performance
+
+Use lts-19.23 as the "resolver" for the Haskell Tool Stack.
+
+Your code should compile under GHC 9.0.2 with no warnings, e.g.,
+
+stack --resolver lts-19.23 ghc -- --make -Wall wordFreq
