@@ -1,7 +1,7 @@
-module ParMain (main) where
+module Main (main) where
 
 import System.IO
-import ParInput
+import ParLib
 
 main :: IO ()
 main = do

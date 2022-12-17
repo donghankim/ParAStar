@@ -39,8 +39,8 @@ library:
 
 executables:
   seq:
-    main:                SeqMain.hs
-    source-dirs:         src
+    main:                Main.hs
+    source-dirs:         seqApp
     ghc-options:
     - -threaded
     - -rtsopts
@@ -52,8 +52,8 @@ executables:
       other-modules: Paths_astar
 
   par:
-    main:                ParMain.hs
-    source-dirs:         src
+    main:                Main.hs
+    source-dirs:         parApp
     ghc-options:
     - -threaded
     - -rtsopts
