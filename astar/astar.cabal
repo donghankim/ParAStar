@@ -23,6 +23,9 @@ source-repository head
 
 library
   exposed-modules:
+      ParAstar
+      ParInput
+      SeqAstar
       SeqInput
   other-modules:
       Paths_astar
@@ -35,10 +38,32 @@ library
     , text
   default-language: Haskell2010
 
-executable seq
-  main-is: Main.hs
+executable par
+  main-is: ParMain.hs
+  other-modules:
+      ParAstar
+      ParInput
+      SeqAstar
+      SeqInput
   hs-source-dirs:
-      app
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      astar
+    , base >=4.7 && <5
+    , bytestring
+    , text
+  default-language: Haskell2010
+
+executable seq
+  main-is: SeqMain.hs
+  other-modules:
+      ParAstar
+      ParInput
+      SeqAstar
+      SeqInput
+  hs-source-dirs:
+      src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       astar
