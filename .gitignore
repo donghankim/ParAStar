@@ -6,6 +6,7 @@ venv/
 notes.txt
 
 # for haskell
+astar/src/temp.hs
 .stack-work/
 *~
 dist

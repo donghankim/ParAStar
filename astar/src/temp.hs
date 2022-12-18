@@ -8,72 +8,33 @@ import Text.Read (readMaybe)
 import Data.Maybe
 
 
-extractKey :: T.Text -> Double 
-extractKey key = fst $ fromRight (-1, "") (rational key)
 
-aa = T.pack "10"
-
-foo :: Int -> Int
-foo x
-  | x > 0 = 10
-  | otherwise = error "data error"
-
-
-extractInt :: Either String (Int, T.Text) -> Int
-extractInt val
-  | isRight val = fst $ fromRight (0, "") val
-  | otherwise = error "[.txt data] Node index is corrupted..."
-
-{- notes
-
-
-parseParticipants :: String -> [Participant]
-parseParticipants fileContents = do
-    [name', age', country'] <- words <$> lines fileContents
-    Just age'' <- return (readMaybe age')
-    return (Participant { name = name', age = age'', country = country' })
-
-main :: IO ()
-main = do
-    participants <- parseParticipants <$> readFile "yourfile.txt"
-    -- do things with the participants
-    return ()
-
-
-extractCoord coord = (y, x)
+-- chat 
+vincenty :: (Double, Double) -> (Double, Double) -> Double
+vincenty (lat1, lon1) (lat2, lon2) =
+  let a = 6378137 -- semi-major axis of the WGS-84 ellipsoid
+      b = 6356752.3142 -- semi-minor axis of the WGS-84 ellipsoid
+      f = (a - b) / a -- flattening of the WGS-84 ellipsoid
+      L = (lon2 - lon1) * pi / 180 -- difference in longitudes
+      U1 = atan ((1 - f) * tan (lat1 * pi / 180))
+      U2 = atan ((1 - f) * tan (lat2 * pi / 180))
+      sinU1 = sin U1
+      cosU1 = cos U1
+      sinU2 = sin U2
+      cosU2 = cos U2
+  in iterateUntilClose 1e-12 200 (\sigma ->
+    let sinSigma = sqrt ((cosU2 * sin (L))^2 + (cosU1 * sinU2 - sinU1 * cosU2 * cos (L))^2)
+        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cos L
+        sigma' = atan2 sinSigma cosSigma
+        sinAlpha = cosU1 * cosU2 * sin L / sinSigma
+        cosSqAlpha = 1 - sinAlpha^2
+        uSq = cosSqAlpha * ((a^2 - b^2) / b^2)
+        A = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))
+        B = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))
+    in (sigma, sigma', sinSigma, cosSigma, sinAlpha, cosSqAlpha, uSq, A, B)) 0
   where
-    [yt,xt] = T.splitOn "&" coord
-    y = fst $ fromRight (-1, "") (rational yt)
-    x = fst $ fromRight (-1, "") (rational xt)
-  
-extractEdge :: T.Text -> (Int, Float)
-extractEdge edge = (n,w)
-  where
-    [idx, wt] = T.splitOn ";" edge
-    n = fst $ fromRight (-1, "") (decimal idx)
-    w = fst $ fromRight (-1, "") (rational wt)
-
-
-
-
-
-
-n1 = Node {idx = 0, coord = (0.454, 0.2121), edges = Nothing}
-n2 = Node {idx = 1, coord = (0.454, 0.2121), edges = Just [(0, 3.3)]}
-createNode :: String -> Node
-createNode str = Node {idx = i, coord = (x,y), edges = edge_arr}
-  where
-    i = str
-
-copyDo :: IO ()
-copyDo = do
-  putStr "Enter repretition: "
-  n <- getLine
-  putStr "Enter phrase: "
-  word <- getLine
-  replicateM_ (read n) (putStrLn word)
-
-data Participant = Participant { name :: String, age :: Int, country :: String }
-
-
--}
+    iterateUntilClose tolerance maxIterations f sigma =
+      let (result, next, _, _, _, _, _, _, _) = f sigma
+      in if abs (result - next) < tolerance || maxIterations == 0
+         then result
+        

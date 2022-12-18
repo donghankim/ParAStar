@@ -31,5 +31,5 @@ https://book.realworldhaskell.org/read/efficient-file-processing-regular-express
 Parallel computation review:
 https://www.oreilly.com/library/view/parallel-and-concurrent/9781449335939/ch02.html
 
-
-
+Vincenty Formula
+https://nathanrooy.github.io/posts/2016-12-18/vincenty-formula-with-python/

@@ -1,14 +1,13 @@
+#!/usr/bin/env python3
+
 import osmnx as ox
 ox.settings.log_console = False
 ox.settings.use_cache = True
 
-import numpy as np
-import networkx as nx
-import pandas as ps
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import os, shutil, argparse
-import pickle, math, pdb
+import pickle, math, tqdm, pdb
 
 # for sanity check
 def haversine(coord1, coord2):
@@ -44,7 +43,7 @@ def createAdj(G, place, DIR_PATH):
     
     # create adjacency list
     adj_list = []
-    for uid, edges in gdf_edges.groupby(level=0):
+    for uid, edges in tqdm.tqdm(gdf_edges.groupby(level=0), desc = "processing nodes..."):
         uNode = gdf_nodes.loc[uid]
         ux = uNode.x; uy = uNode.y
         node = str(osm_hm[uid]) + ":" + str(uy) + "&" + str(ux) + "*"
@@ -63,7 +62,7 @@ def createAdj(G, place, DIR_PATH):
     
     # save graph .png
     fig, ax = ox.plot_graph(G, figsize = (20,20), show = False, save = False, close = False, node_color = "r", edge_color = 'g', filepath = PNG_PATH)    
-    for node in gdf_nodes.iterrows():
+    for node in tqdm.tqdm(gdf_nodes.iterrows(), desc = "adding node labels to .png"):
         text = osm_hm[node[0]]
         c = node[1]["geometry"].centroid
         ax.annotate(text, (c.x, c.y), size = 12, c="white")
@@ -92,7 +91,6 @@ def saveGraph(G, place):
     try:
         print("creating graph data for " + place + "...") 
         ox.save_graphml(G, filepath = ML_PATH, gephi = False)
-        print(".graphml saved!")
         createAdj(G, place, DIR_PATH)
         print("adjacency graph created!")
     except Exception as e:
@@ -101,6 +99,7 @@ def saveGraph(G, place):
 
 
 def create_new_graph(place):
+    print("Retrieving graph from OpenStreetMap...")
     G = ox.graph_from_place(place, network_type = "all", simplify = True)
     G = ox.add_edge_speeds(G, hwy_speeds = 5.1) # for generating desired edges
     G = ox.add_edge_travel_times(G)
@@ -136,12 +135,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-g", type = str, help = "enter place name to download and generate graph data for")
     parser.add_argument("-l",  type = str, help = "load an existing graph (folder name)")
+    parser.add_argument("--debug", action = "store_true")
     args = parser.parse_args()
     
     if args.g:
         create_new_graph(args.g)
     elif args.l:
         plot_path(args.l)
+    elif args.debug:
+        pdb.set_trace()
     else:
         print("*** You have to either generate or load a graph ***")
         
