@@ -8,12 +8,22 @@ import qualified Data.Text.IO as TIO
 import qualified Data.IntSet as S
 import qualified Data.IntMap as M
 import qualified Data.PQueue.Prio.Min as P
--- import qualified Data.PQueue.Min as PP
 
 import Data.Text.Read 
 import Data.Either
-import Data.Maybe (fromJust, isNothing)
+import Data.Maybe (fromJust, isJust)
+import Data.Tuple (swap)
 
+-- debug use
+{-
+nn = Node {idx = (-1), coord = (1.2, 2.1), edges = []}
+
+aa = M.fromList [(1,2.1), (2, 10)] :: M.IntMap Double
+foo idx aa = M.update (\x -> if x == 10.0 then Just 100 else Nothing) idx aa
+
+bb = P.fromList [(20,1), (0,5)]
+minVal = P.getMin bb
+-}
 
 
 -- | Node datatype
@@ -29,7 +39,7 @@ data Node = Node { idx   :: Int,
 
 -- | Initiate sequential A* search on
 -- selected OpenStreetMap graph
-seqSearch :: IO [Int]
+seqSearch :: IO ()
 seqSearch = do
   fp <- openFile "ColumbiaUniversity.txt" ReadMode
   content <- TIO.hGetContents fp
@@ -39,15 +49,17 @@ seqSearch = do
   let nodeMap = M.fromList $ map (parseLine) (T.lines content)
       sIdx = read start :: Int
       tIdx = read target :: Int
-      openList = P.singleton 0 sIdx :: P.MinPQueue Double Int
+      openList = P.singleton 0.0 sIdx :: P.MinPQueue Double Int
       closedList = S.empty
       cameFrom = M.empty :: M.IntMap Int
-      path = astar sIdx tIdx nodeMap openList closedList cameFrom
+  
+  putStrLn (show $ nodeMap M.! (90 :: Int))
+
+  let path = astar sIdx tIdx nodeMap openList closedList cameFrom
   
   case path of 
-       Nothing -> return([])
-       isJust  -> return(fromJust path)
-
+       Nothing -> putStrLn "no path found..."
+       _       -> putStr $ show (fromJust path)
 
 
 -- | Find shortest path using A* search
@@ -64,25 +76,22 @@ astar sIdx tIdx nodeMap openList closedSet cameFrom
   | cIdx == tIdx = Just $ reconstructPath sIdx tIdx cameFrom
   | P.null openList = Nothing
   | S.member cIdx closedSet = astar sIdx tIdx nodeMap openList' closedSet' cameFrom
-  | otherwise = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom
+  | otherwise = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom'
   where
-    cIdx = snd (fromJust $ P.getMin openList)
+    cIdx = snd (P.findMin openList)
     cNode = nodeMap M.! cIdx
     openList' = P.deleteMin openList
-    adjNodes = (filter ((\idx -> S.notMember idx closedSet').fst) (edges cNode))
-    fcost = [(calcFn idx sIdx tIdx nodeMap cameFrom, idx) | (idx, _) <- adjNodes]
-    
-    openList'' = P.union openList' $ P.fromList fcost
     closedSet' = S.insert cIdx closedSet
 
-    
-{-
--- | Update openList and cameFrom
-updateShared :: P.MinPQueue -> [(Double, Int)] -> M.IntMap Int -> (P.MinPQueue Double Int -> M.IntMap Int)
-updateShared oldOpen fcost oldFrom = newOpen newFrom
-  where
--}
+    adjNodes = filter ((\adjIdx -> S.notMember adjIdx closedSet').fst) (edges cNode)
+    fcost = [(adjIdx, calcFn adjIdx sIdx tIdx nodeMap cameFrom) | (adjIdx, _) <- adjNodes]
 
+    tempList =  P.filterWithKey (\fn idx -> let fn' = lookup idx fcost in (isJust fn') && (fromJust fn' < fn)) openList'
+    improvedNodes = P.elemsU $ tempList
+    cameFrom' = M.mapWithKey (\idx old -> if idx `elem` improvedNodes then cIdx else old) cameFrom
+    openList'' = P.union tempList (P.fromList $ map swap fcost)
+
+  
 -- | Calculate fn
 calcFn :: Int -> Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double
 calcFn cIdx sIdx tIdx nodeMap cameFrom = 
@@ -109,8 +118,9 @@ calcHn cNode tNode = 0.0
 
 -- | Reconstruct the shortest path (update later)
 reconstructPath :: Int -> Int -> M.IntMap Int -> [Int]
-reconstructPath sIdx tIdx cameFrom = [202,90,31,86,82,72]
-
+reconstructPath sIdx tIdx cameFrom
+  | sIdx == tIdx = [sIdx]
+  | otherwise = [tIdx] ++ reconstructPath sIdx (cameFrom M.! tIdx) cameFrom
 
 
 
@@ -214,6 +224,15 @@ extractDouble val
   | otherwise = error "[.txt data] Node long/lat is corrupted..."
 
 
--- debug use
-nn = Node {idx = (-1), coord = (1.2, 2.1), edges = []}
+
+
+
+
+
+
+
+
+
+
+
 
