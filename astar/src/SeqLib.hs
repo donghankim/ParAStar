@@ -7,7 +7,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.IntSet as S
 import qualified Data.IntMap as M
-import qualified Data.PQueue.Prio.Min as P
+import qualified Data.PQueue.Min as P
 
 import Data.Text.Read 
 import Data.Either
@@ -16,6 +16,8 @@ import Data.Tuple (swap)
 
 -- debug use ii
 {-
+stack repl
+:set -fprint-evld-with-show
 nn = Node {idx = (-1), coord = (1.2, 2.1), edges = []}
 
 aa = M.fromList [(1,2.1), (2, 10)] :: M.IntMap Double
@@ -49,7 +51,7 @@ seqSearch = do
   let nodeMap = M.fromList $ map (parseLine) (T.lines content)
       sIdx = read start :: Int
       tIdx = read target :: Int
-      openList = P.singleton 0.0 sIdx :: P.MinPQueue Double Int
+      openList = P.singleton (0.0, sIdx) :: P.MinQueue (Double, Int)
       closedList = S.empty
       cameFrom = M.empty :: M.IntMap Int
       path = astar sIdx tIdx nodeMap openList closedList cameFrom
@@ -68,26 +70,41 @@ seqSearch = do
 -- closedSet => IntSet <idx> 
 -- cameFrom => IntMap <fromIdx, toIdx>
 -- return: path :: Maybe [Int]
-astar :: Int -> Int -> M.IntMap Node -> P.MinPQueue Double Int -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
+astar :: Int -> Int -> M.IntMap Node -> P.MinQueue (Double, Int) -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
 astar sIdx tIdx nodeMap openList closedSet cameFrom
-  | cIdx == tIdx = Just $ reconstructPath sIdx tIdx cameFrom
-  | P.null openList = Nothing
+  | P.null openList         = Nothing
+  | cIdx == tIdx            = Just $ reconstructPath sIdx tIdx cameFrom
   | S.member cIdx closedSet = astar sIdx tIdx nodeMap openList' closedSet cameFrom
-  | otherwise = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom''
+  | otherwise               = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom''
   where
     cIdx = snd (P.findMin openList)
     openList' = P.deleteMin openList
     closedSet' = S.insert cIdx closedSet
     cNode = nodeMap M.! cIdx
-
+    
+    -- calculate f(n) = g(n) + h(n)
     adjNodes = filter ((\adjIdx -> S.notMember adjIdx closedSet').fst) (edges cNode)
     cameFrom' = updateFrom cameFrom [(adjIdx, cIdx) | (adjIdx, _) <- adjNodes]
     fcost = [(adjIdx, calcFn adjIdx sIdx tIdx nodeMap cameFrom') | (adjIdx, _) <- adjNodes]
+    
+    -- update shared resource
     combinedOpen = updateOpen openList' fcost 
-  
-    improvedNodes = P.elemsU $ fst combinedOpen
+    improvedNodes = map snd (P.elemsU $ fst combinedOpen)
     cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` improvedNodes then cIdx else old) cameFrom'
     openList'' = P.union (fst combinedOpen) (snd combinedOpen)
+
+
+-- | Update openList
+updateOpen :: P.MinQueue (Double, Int) -> [(Int, Double)] -> (P.MinQueue (Double, Int), P.MinQueue (Double, Int))
+updateOpen openList fcost = 
+  let
+    temp = P.partition (\(fn, idx) -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
+    sameOpen = snd temp 
+    updatedOpen = P.map (\(_, idx) -> (fromJust $ lookup idx fcost, idx)) (fst temp)  
+    newOpen = P.fromList $ map swap fcost
+  in if P.null openList then (newOpen, P.empty) else (updatedOpen, sameOpen)
+
+
 
 
 -- | Update cameFrom
@@ -95,16 +112,6 @@ updateFrom :: M.IntMap Int -> [(Int, Int)] -> M.IntMap Int
 updateFrom cameFrom adjNodes = foldl f cameFrom adjNodes
   where
     f cameFrom (from,to) = if M.member from cameFrom then cameFrom else M.insert from to cameFrom
-
--- | Update openList
-updateOpen :: P.MinPQueue Double Int -> [(Int, Double)] -> (P.MinPQueue Double Int, P.MinPQueue Double Int)
-updateOpen openList fcost = 
-  let
-    temp = P.partitionWithKey (\fn idx -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
-    fmod (fn, idx) = (fromJust $ lookup idx fcost, idx)
-    newOpen = map fmod (P.toListU $ fst temp)
-    sameOpen = snd temp 
-  in (P.fromList newOpen, sameOpen)
 
 
 -- | Calculate fn
