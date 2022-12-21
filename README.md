@@ -5,6 +5,10 @@ Parallel, functional A* pathfinder on OpenStreetMap
 ```bash
 cd astar/
 
+# create python vevn & install dependencies
+python3 -m virtualenv venv
+pip3 install -r requirements.txt
+
 # to run astar
 stack exec astar-exe
 
