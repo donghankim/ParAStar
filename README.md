@@ -36,3 +36,6 @@ https://www.oreilly.com/library/view/parallel-and-concurrent/9781449335939/ch02.
 
 Vincenty Formula
 https://nathanrooy.github.io/posts/2016-12-18/vincenty-formula-with-python/
+
+GHCi Debug
+https://downloads.haskell.org/~ghc/8.6.5/docs/html/users_guide/ghci.html#the-ghci-debugger

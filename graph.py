@@ -10,7 +10,7 @@ import os, shutil, argparse
 import pickle, math, tqdm, pdb
 
 
-DIR_PATH = os.path("./astar/data/")
+DIR_PATH = "./astar/data/"
 
 # for sanity check
 def haversine(coord1, coord2):
@@ -32,7 +32,7 @@ def haversine(coord1, coord2):
     print(meters)
 
 
-def createAdj(G, place, DIR_PATH):
+def createAdj(G, place):
     PNG_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".png")
     TXT_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".txt")
     PKL_PATH =  os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".pickle")
@@ -85,21 +85,15 @@ def createAdj(G, place, DIR_PATH):
     fp.close()
 
 def saveGraph(G, place):
-    DIR_PATH = os.path.join('./astar/data/', place.replace(" ", "").strip())
     ML_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".graphml")
-
-    if not os.path.isdir(DIR_PATH):
-        os.mkdir(DIR_PATH)
       
     try:
         print("creating graph data for " + place + "...") 
         ox.save_graphml(G, filepath = ML_PATH, gephi = False)
-        createAdj(G, place, DIR_PATH)
+        createAdj(G, place)
         print("adjacency graph created!")
     except Exception as e:
         print(e)
-        shutil.rmtree(DIR_PATH)
-
 
 def create_new_graph(place):
     print("Retrieving graph from OpenStreetMap...")
@@ -109,9 +103,7 @@ def create_new_graph(place):
     saveGraph(G, place)
     
         
-def plot_path(args):
-    place, RES_PATH = args.split(" ")
-    DIR_PATH = os.path.join('./astar/data/', place.replace(" ", "").strip())
+def plot_path(place):
     ML_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".graphml")
     PKL_PATH =  os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".pickle")
     
@@ -126,7 +118,7 @@ def plot_path(args):
     
     # load path
     path = []
-    fp = open(RES_PATH, 'r')
+    fp = open('./astar/res.txt', 'r')
     lines = fp.read().splitlines()
     path = [osm_hm[int(idx)] for idx in lines]    
     
@@ -146,7 +138,7 @@ if __name__ == '__main__':
     if args.g:
         create_new_graph(args.g)
     elif args.l:
-        plot_path(args.l) if len(args.l.split(" ")) == 2 else print("*** enter only place_name and path_to_path ***")
+        plot_path(args.l) 
     elif args.debug:
         pdb.set_trace()
     else:
