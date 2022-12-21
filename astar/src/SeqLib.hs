@@ -12,7 +12,6 @@ import qualified Data.PQueue.Min as P
 import Data.Text.Read 
 import Data.Either
 import Data.Maybe (fromJust, isJust)
-import Data.Tuple (swap)
 
 -- debug use ii
 {-
@@ -41,9 +40,11 @@ data Node = Node { idx   :: Int,
 
 -- | Initiate sequential A* search on
 -- selected OpenStreetMap graph
-seqSearch :: IO ()
+seqSearch :: IO [Int]
 seqSearch = do
-  fp <- openFile "src/ColumbiaUniversity.txt" ReadMode
+  putStrLn "*** Sequential A-Star Path Finder ***"
+  graphFile <-  putStr "Enter Graph .txt File: " *> hFlush stdout *> getLine
+  fp <- openFile ("data/" ++ graphFile) ReadMode
   content <- TIO.hGetContents fp
   start <- putStr "Enter Start Node Index: " *> hFlush stdout *> getLine
   target <- putStr "Enter Destination Node Index: " *> hFlush stdout *> getLine
@@ -57,8 +58,8 @@ seqSearch = do
       path = astar sIdx tIdx nodeMap openList closedList cameFrom
 
   case path of 
-       Nothing -> putStrLn "no path found..."
-       _       -> putStr $ show (fromJust path)
+       Nothing -> return ([])
+       _       -> return (fromJust path)
 
 
 -- | Find shortest path using A* search
@@ -89,8 +90,8 @@ astar sIdx tIdx nodeMap openList closedSet cameFrom
     
     -- update shared resource
     combinedOpen = updateOpen openList' fcost 
-    improvedNodes = map snd (P.elemsU $ fst combinedOpen)
-    cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` improvedNodes then cIdx else old) cameFrom'
+    updatedNodes = map snd (P.elemsU $ fst combinedOpen)
+    cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` updatedNodes then cIdx else old) cameFrom'
     openList'' = P.union (fst combinedOpen) (snd combinedOpen)
 
 
@@ -98,13 +99,14 @@ astar sIdx tIdx nodeMap openList closedSet cameFrom
 updateOpen :: P.MinQueue (Double, Int) -> [(Int, Double)] -> (P.MinQueue (Double, Int), P.MinQueue (Double, Int))
 updateOpen openList fcost = 
   let
+    currentNodes = map snd (P.elemsU openList)
+    newNodes = [(fn, idx) | (idx, fn) <- fcost, idx `notElem` currentNodes]
+    newOpen = P.fromList newNodes
+
     temp = P.partition (\(fn, idx) -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
     sameOpen = snd temp 
     updatedOpen = P.map (\(_, idx) -> (fromJust $ lookup idx fcost, idx)) (fst temp)  
-    newOpen = P.fromList $ map swap fcost
-  in if P.null openList then (newOpen, P.empty) else (updatedOpen, sameOpen)
-
-
+  in if P.null openList then (P.union newOpen updatedOpen, sameOpen) else (P.union newOpen updatedOpen, sameOpen)
 
 
 -- | Update cameFrom
@@ -223,17 +225,16 @@ parseLine tStr = (nKey, node)
   where
     [idx, info] = T.splitOn ":" tStr
     [coord, edges] = T.splitOn "*" info
-    [yt, xt] = T.splitOn "&" coord 
+    [yt, xt] = T.splitOn "&" coord
     edgeList = T.splitOn "," edges
     nEdges = [(id_, wt) | dt <- edgeList, 
                         let [idVal, wVal] = T.splitOn ";" dt,
-                        let id_ = extractInt $ decimal idVal,
-                        let wt = extractDouble $ rational wVal]
+                        let id_ = extractInt $ decimal $ idVal,
+                        let wt = extractDouble $ rational $ wVal]
     
     nKey = extractInt $ decimal idx
     nCoord = (extractDouble $ rational yt, extractDouble $ rational xt)
     node = Node {idx = nKey, coord = nCoord, edges = nEdges}
-
 
 extractInt :: Either String (Int, T.Text) -> Int
 extractInt val

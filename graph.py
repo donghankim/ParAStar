@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 import os, shutil, argparse
 import pickle, math, tqdm, pdb
 
+
+DIR_PATH = os.path("./astar/data/")
+
 # for sanity check
 def haversine(coord1, coord2):
     lon1, lat1 = coord1
@@ -82,7 +85,7 @@ def createAdj(G, place, DIR_PATH):
     fp.close()
 
 def saveGraph(G, place):
-    DIR_PATH = os.path.join('./data/', place.replace(" ", "").strip())
+    DIR_PATH = os.path.join('./astar/data/', place.replace(" ", "").strip())
     ML_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".graphml")
 
     if not os.path.isdir(DIR_PATH):
@@ -108,7 +111,7 @@ def create_new_graph(place):
         
 def plot_path(args):
     place, RES_PATH = args.split(" ")
-    DIR_PATH = os.path.join('./data/', place.replace(" ", "").strip())
+    DIR_PATH = os.path.join('./astar/data/', place.replace(" ", "").strip())
     ML_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".graphml")
     PKL_PATH =  os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".pickle")
     
