@@ -37,9 +37,9 @@ def createAdj(G, place, DIR_PATH):
     
     # osmid hashmap
     size = G.number_of_nodes()
-    key = gdf_nodes.index.values
-    val = [i for i in range(size)]
-    osm_hm = dict(zip(key, val))
+    osmid = gdf_nodes.index.values
+    idx = [i for i in range(size)]
+    osm_hm = dict(zip(osmid, idx))
     
     # create adjacency list
     adj_list = []
@@ -70,7 +70,7 @@ def createAdj(G, place, DIR_PATH):
     # plt.show()
     plt.savefig(f'{PNG_PATH}', dpi = 600)
     
-    # save ajdcency list
+    # save adjacency list
     fp = open(TXT_PATH, "w")
     for line in adj_list:
         fp.write(line + "\n")
@@ -78,7 +78,7 @@ def createAdj(G, place, DIR_PATH):
 
     # save osmid hashmap
     fp = open(PKL_PATH, "wb")    
-    pickle.dump(osm_hm, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    pickle.dump(dict(zip(idx, osmid)), fp, protocol=pickle.HIGHEST_PROTOCOL)
     fp.close()
 
 def saveGraph(G, place):
@@ -106,27 +106,29 @@ def create_new_graph(place):
     saveGraph(G, place)
     
         
-
-# for debugging
-def plot_path(place):
+def plot_path(args):
+    place, RES_PATH = args.split(" ")
     DIR_PATH = os.path.join('./data/', place.replace(" ", "").strip())
     ML_PATH = os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".graphml")
     PKL_PATH =  os.path.join(DIR_PATH, place.replace(" ", "").strip() + ".pickle")
- 
+    
+    # load graph
     G = ox.load_graphml(ML_PATH)
     gdf_nodes, _ = ox.graph_to_gdfs(G)
-
+    
+    # load idx -> osmid hm
     fp = open(PKL_PATH, 'rb')
     osm_hm = pickle.load(fp)
     fp.close()
     
-    nodes = list(G)
-    origin = nodes[20]
-    dest = nodes[200]
-    print(osm_hm[origin], osm_hm[dest])
-    route = ox.shortest_path(G, origin, dest, weight = "travel_time")
-   
-    fig, ax = ox.plot_graph_route(G, route, show = False, save = False, close = False, node_size = 5, node_color = "r", edge_color = 'g', route_color='b')    
+    # load path
+    path = []
+    fp = open(RES_PATH, 'r')
+    lines = fp.read().splitlines()
+    path = [osm_hm[int(idx)] for idx in lines]    
+    
+    # plot path
+    fig, ax = ox.plot_graph_route(G, path, show = False, save = False, close = False, node_size = 5, node_color = "r", edge_color = 'g', route_color='b')    
     plt.show()
 
 
@@ -134,14 +136,14 @@ def plot_path(place):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-g", type = str, help = "enter place name to download and generate graph data for")
-    parser.add_argument("-l",  type = str, help = "load an existing graph (folder name)")
+    parser.add_argument("-l",  type = str, help = "enter place name and path_to_path")
     parser.add_argument("--debug", action = "store_true")
     args = parser.parse_args()
     
     if args.g:
         create_new_graph(args.g)
     elif args.l:
-        plot_path(args.l)
+        plot_path(args.l) if len(args.l.split(" ")) == 2 else print("*** enter only place_name and path_to_path ***")
     elif args.debug:
         pdb.set_trace()
     else:

@@ -19,6 +19,9 @@ stack exec apar +RTS -N12
 
 ### Resources
 
+A* search
+https://medium.com/@nicholas.w.swift/easy-a-star-pathfinding-7e6689c7f7b2
+
 OpenStreetMap
 https://www.openstreetmap.org/search?whereami=1&query=40.80863%2C-73.96156#map=18/40.80863/-73.96156
 

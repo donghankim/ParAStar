@@ -36,3 +36,18 @@ readLinesFromFile filepath lineCount handleCount linesPerHandle = do
 
 lines <- runPar $ readLinesFromFile "file.txt" lineCount handleCount linesPerHandle
 -}
+
+
+{-
+This didnt work but I dunno...
+loadFile :: Handle -> IO ()
+loadFile fh = do
+  let nodeMap = M.empty
+  eof <- hIsEOF fh
+  unless eof $ do
+    tStr <- TIO.hGetLine fh
+    let (key, node) = parseLine tStr
+    let nodeMap = M.insert key node nodeMap
+    loadFile fh
+  hClose fh
+-}
