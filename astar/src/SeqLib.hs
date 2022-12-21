@@ -41,7 +41,7 @@ data Node = Node { idx   :: Int,
 -- selected OpenStreetMap graph
 seqSearch :: IO ()
 seqSearch = do
-  fp <- openFile "ColumbiaUniversity.txt" ReadMode
+  fp <- openFile "src/ColumbiaUniversity.txt" ReadMode
   content <- TIO.hGetContents fp
   start <- putStr "Enter Start Node Index: " *> hFlush stdout *> getLine
   target <- putStr "Enter Destination Node Index: " *> hFlush stdout *> getLine
@@ -52,11 +52,8 @@ seqSearch = do
       openList = P.singleton 0.0 sIdx :: P.MinPQueue Double Int
       closedList = S.empty
       cameFrom = M.empty :: M.IntMap Int
-  
-  putStrLn (show $ nodeMap M.! (90 :: Int))
+      path = astar sIdx tIdx nodeMap openList closedList cameFrom
 
-  let path = astar sIdx tIdx nodeMap openList closedList cameFrom
-  
   case path of 
        Nothing -> putStrLn "no path found..."
        _       -> putStr $ show (fromJust path)
@@ -71,27 +68,45 @@ seqSearch = do
 -- closedSet => IntSet <idx> 
 -- cameFrom => IntMap <fromIdx, toIdx>
 -- return: path :: Maybe [Int]
-astar :: Int -> Int -> M.IntMap Node -> P.MinPQueue Double Int -> S.IntSet -> M.IntMap Int -> Maybe [Int]
+astar :: Int -> Int -> M.IntMap Node -> P.MinPQueue Double Int -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
 astar sIdx tIdx nodeMap openList closedSet cameFrom
   | cIdx == tIdx = Just $ reconstructPath sIdx tIdx cameFrom
   | P.null openList = Nothing
-  | S.member cIdx closedSet = astar sIdx tIdx nodeMap openList' closedSet' cameFrom
-  | otherwise = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom'
+  | S.member cIdx closedSet = astar sIdx tIdx nodeMap openList' closedSet cameFrom
+  | otherwise = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom''
   where
     cIdx = snd (P.findMin openList)
-    cNode = nodeMap M.! cIdx
     openList' = P.deleteMin openList
     closedSet' = S.insert cIdx closedSet
+    cNode = nodeMap M.! cIdx
 
     adjNodes = filter ((\adjIdx -> S.notMember adjIdx closedSet').fst) (edges cNode)
-    fcost = [(adjIdx, calcFn adjIdx sIdx tIdx nodeMap cameFrom) | (adjIdx, _) <- adjNodes]
-
-    tempList =  P.filterWithKey (\fn idx -> let fn' = lookup idx fcost in (isJust fn') && (fromJust fn' < fn)) openList'
-    improvedNodes = P.elemsU $ tempList
-    cameFrom' = M.mapWithKey (\idx old -> if idx `elem` improvedNodes then cIdx else old) cameFrom
-    openList'' = P.union tempList (P.fromList $ map swap fcost)
-
+    cameFrom' = updateFrom cameFrom [(adjIdx, cIdx) | (adjIdx, _) <- adjNodes]
+    fcost = [(adjIdx, calcFn adjIdx sIdx tIdx nodeMap cameFrom') | (adjIdx, _) <- adjNodes]
+    combinedOpen = updateOpen openList' fcost 
   
+    improvedNodes = P.elemsU $ fst combinedOpen
+    cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` improvedNodes then cIdx else old) cameFrom'
+    openList'' = P.union (fst combinedOpen) (snd combinedOpen)
+
+
+-- | Update cameFrom
+updateFrom :: M.IntMap Int -> [(Int, Int)] -> M.IntMap Int
+updateFrom cameFrom adjNodes = foldl f cameFrom adjNodes
+  where
+    f cameFrom (from,to) = if M.member from cameFrom then cameFrom else M.insert from to cameFrom
+
+-- | Update openList
+updateOpen :: P.MinPQueue Double Int -> [(Int, Double)] -> (P.MinPQueue Double Int, P.MinPQueue Double Int)
+updateOpen openList fcost = 
+  let
+    temp = P.partitionWithKey (\fn idx -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
+    fmod (fn, idx) = (fromJust $ lookup idx fcost, idx)
+    newOpen = map fmod (P.toListU $ fst temp)
+    sameOpen = snd temp 
+  in (P.fromList newOpen, sameOpen)
+
+
 -- | Calculate fn
 calcFn :: Int -> Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double
 calcFn cIdx sIdx tIdx nodeMap cameFrom = 
@@ -120,7 +135,7 @@ calcHn cNode tNode = 0.0
 reconstructPath :: Int -> Int -> M.IntMap Int -> [Int]
 reconstructPath sIdx tIdx cameFrom
   | sIdx == tIdx = [sIdx]
-  | otherwise = [tIdx] ++ reconstructPath sIdx (cameFrom M.! tIdx) cameFrom
+  | otherwise = reconstructPath sIdx (cameFrom M.! tIdx) cameFrom ++ [tIdx]
 
 
 
