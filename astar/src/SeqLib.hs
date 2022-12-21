@@ -9,7 +9,7 @@ import qualified Data.IntSet as S
 import qualified Data.IntMap as M
 import qualified Data.PQueue.Min as P
 
-import Data.Text.Read 
+import Data.Text.Read
 import Data.Either
 import Data.Maybe (fromJust, isJust)
 
@@ -48,7 +48,7 @@ seqSearch = do
   content <- TIO.hGetContents fp
   start <- putStr "Enter Start Node Index: " *> hFlush stdout *> getLine
   target <- putStr "Enter Destination Node Index: " *> hFlush stdout *> getLine
-  
+
   let nodeMap = M.fromList $ map (parseLine) (T.lines content)
       sIdx = read start :: Int
       tIdx = read target :: Int
@@ -57,7 +57,7 @@ seqSearch = do
       cameFrom = M.empty :: M.IntMap Int
       path = astar sIdx tIdx nodeMap openList closedList cameFrom
 
-  case path of 
+  case path of
        Nothing -> return ([])
        _       -> return (fromJust path)
 
@@ -68,7 +68,7 @@ seqSearch = do
 -- tIdx => target node idx
 -- nodeMap => IntMap <idx, Node>
 -- openList => MinPQueue <fn, idx>
--- closedSet => IntSet <idx> 
+-- closedSet => IntSet <idx>
 -- cameFrom => IntMap <fromIdx, toIdx>
 -- return: path :: Maybe [Int]
 astar :: Int -> Int -> M.IntMap Node -> P.MinQueue (Double, Int) -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
@@ -82,14 +82,14 @@ astar sIdx tIdx nodeMap openList closedSet cameFrom
     openList' = P.deleteMin openList
     closedSet' = S.insert cIdx closedSet
     cNode = nodeMap M.! cIdx
-    
+
     -- calculate f(n) = g(n) + h(n)
     adjNodes = filter ((\adjIdx -> S.notMember adjIdx closedSet').fst) (edges cNode)
     cameFrom' = updateFrom cameFrom [(adjIdx, cIdx) | (adjIdx, _) <- adjNodes]
     fcost = [(adjIdx, calcFn adjIdx sIdx tIdx nodeMap cameFrom') | (adjIdx, _) <- adjNodes]
-    
+
     -- update shared resource
-    combinedOpen = updateOpen openList' fcost 
+    combinedOpen = updateOpen openList' fcost
     updatedNodes = map snd (P.elemsU $ fst combinedOpen)
     cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` updatedNodes then cIdx else old) cameFrom'
     openList'' = P.union (fst combinedOpen) (snd combinedOpen)
@@ -97,15 +97,15 @@ astar sIdx tIdx nodeMap openList closedSet cameFrom
 
 -- | Update openList
 updateOpen :: P.MinQueue (Double, Int) -> [(Int, Double)] -> (P.MinQueue (Double, Int), P.MinQueue (Double, Int))
-updateOpen openList fcost = 
+updateOpen openList fcost =
   let
     currentNodes = map snd (P.elemsU openList)
     newNodes = [(fn, idx) | (idx, fn) <- fcost, idx `notElem` currentNodes]
     newOpen = P.fromList newNodes
 
     temp = P.partition (\(fn, idx) -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
-    sameOpen = snd temp 
-    updatedOpen = P.map (\(_, idx) -> (fromJust $ lookup idx fcost, idx)) (fst temp)  
+    sameOpen = snd temp
+    updatedOpen = P.map (\(_, idx) -> (fromJust $ lookup idx fcost, idx)) (fst temp)
   in if P.null openList then (P.union newOpen updatedOpen, sameOpen) else (P.union newOpen updatedOpen, sameOpen)
 
 
@@ -118,12 +118,12 @@ updateFrom cameFrom adjNodes = foldl f cameFrom adjNodes
 
 -- | Calculate fn
 calcFn :: Int -> Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double
-calcFn cIdx sIdx tIdx nodeMap cameFrom = 
-  let 
+calcFn cIdx sIdx tIdx nodeMap cameFrom =
+  let
     gn = calcGn cIdx sIdx nodeMap cameFrom 0.0
     hn = calcHn (nodeMap M.! cIdx) (nodeMap M.! tIdx)
   in gn + hn
-    
+
 
 -- | Calculate gn
 calcGn :: Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double -> Double
@@ -133,11 +133,11 @@ calcGn cIdx sIdx nodeMap cameFrom gn
   where
     fIdx = cameFrom M.! cIdx
     gn' = gn + (snd . head $ filter ((\idx -> idx == cIdx).fst) (edges $ nodeMap M.! fIdx))
- 
+
 
 -- | Calculate hn (replace with Vincenty later)
 calcHn :: Node -> Node -> Double
-calcHn cNode tNode = 0.0
+calcHn cNode tNode = vincenty (coord cNode) (coord tNode)
 
 
 -- | Reconstruct the shortest path (update later)
@@ -147,61 +147,52 @@ reconstructPath sIdx tIdx cameFrom
   | otherwise = reconstructPath sIdx (cameFrom M.! tIdx) cameFrom ++ [tIdx]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
--- | Vincenty forumla (WGS-84 standard)
--- accurate to upto 0.066 meters, but expensive
+-- | Vincenty forumla (WGS-84 standard, in meters)
+-- accurate to upto 0.066mm, but expensive
 vincenty :: (Double, Double) -> (Double, Double) -> Double
 vincenty n1 n2 =
   let lon1 = fst n1
       lat1 = snd n1
       lon2 = fst n2
       lat2 = snd n2
-      a = 6378137 -- semi-major axis of the WGS-84 ellipsoid
-      b = 6356752.3142 -- semi-minor axis of the WGS-84 ellipsoid
-      f = (a - b) / a -- flattening of the WGS-84 ellipsoid
-      l = (lon2 - lon1) * pi / 180 -- difference in longitudes
-      u1 = atan ((1 - f) * tan (lat1 * pi / 180))
-      u2 = atan ((1 - f) * tan (lat2 * pi / 180))
-      sinU1 = sin u1
-      cosU1 = cos u1
-      sinU2 = sin u2
-      cosU2 = cos u2
-  in iterateUntilClose 1e-12 5000 (\sigma ->
-    let sinSigma = sqrt ((cosU2 * sin (l))^2 + (cosU1 * sinU2 - sinU1 * cosU2 * cos (l))^2)
-        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cos l
-        sigma' = atan2 sinSigma cosSigma
-        sinAlpha = cosU1 * cosU2 * sin l / sinSigma
-        cosSqAlpha = 1 - sinAlpha^2
-        uSq = cosSqAlpha * ((a^2 - b^2) / b^2)
-        aA = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))
-        bB = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))
-    in (sigma, sigma', sinSigma, cosSigma, sinAlpha, cosSqAlpha, uSq, aA, bB)) 0
+      a = 6378137 :: Double
+      f = 1/298.257223563 :: Double
+      b = (1 - f) * a :: Double
+      capL = (lon2 - lon1) * pi / 180 :: Double
+      u1 = atan ((1 - f) * tan (lat1 * pi / 180)) :: Double
+      u2 = atan ((1 - f) * tan (lat2 * pi / 180)) :: Double
+      sinU1 = sin u1 :: Double
+      cosU1 = cos u1 :: Double
+      sinU2 = sin u2 :: Double
+      cosU2 = cos u2 :: Double
+
+  in iterateUntilClose 1e-12 5000 (\lambda ->
+    let
+        sinSigma = sqrt ((cosU2 * sin (lambda))**2 + (cosU1 * sinU2 - sinU1 * cosU2 * cos (lambda))**2) :: Double
+        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cos lambda :: Double
+        sigma = atan (sinSigma/cosSigma) :: Double
+        sinAlpha = cosU1 * cosU2 * (sin lambda) / sinSigma :: Double
+        cosSqAlpha = 1 - sinAlpha**2 :: Double
+        cos2sig = cosSigma - (2*sinU1*sinU2/cosSqAlpha) :: Double
+        capC = (f/16)*cosSqAlpha*(4 + f*(4 - 3*cosSqAlpha)) :: Double
+        lambda' = capL + (1 - capC) * f * sinAlpha * (sigma + capC * sinSigma * (cos2sig + capC * cosSigma * (-1 + 2 * cos2sig**2))) :: Double
+    in (lambda, lambda', sigma, cosSqAlpha, cosSigma, cos2sig, sinSigma, a, b)) capL
   where
-    iterateUntilClose tolerance maxIterations f sigma =
-      let (result, next, _, _, _, _, _, _, _) = f sigma
-      in if abs (result - next) < tolerance || maxIterations == 0
-         then result
-         else iterateUntilClose tolerance (maxIterations - 1) f next
-         
+    iterateUntilClose tolerance maxIterations f lambda =
+      let (prevLambda, newLambda, sig, csa, cs, c2s, ss, defA, defB) = f lambda
+      in if abs (prevLambda - newLambda) < tolerance || maxIterations == 0
+         then vincentyDistance ((csa**2)*(defA**2 - defB**2)/defB**2) ss c2s cs defB sig
+         else iterateUntilClose tolerance (maxIterations - 1) f newLambda
+
+
+-- Vincenty helper (calculate distance)
+vincentyDistance :: Double -> Double -> Double -> Double -> Double -> Double -> Double
+vincentyDistance uSq sinSig cosTwoSig cosSig b sig' = b*capA*(sig' - deltaSig)
+  where
+    capA = 1 + (uSq/16384) * (4096 + uSq*(-768 + uSq * (320 - 175*uSq)))
+    capB = (uSq/1024)*(256 + uSq*(-128 + uSq*(74 - 47*uSq)))
+    deltaSig = capB*sinSig*(cosTwoSig +(1/4)*capB*(cosSig*(-1 +2*cosTwoSig**2) - (1/6)*capB*cosTwoSig*(-3 + 4*sinSig**2)*(-3 + 4*cosTwoSig**2)))
+
 
 -- | Haversine formula (in Km)
 -- not very accurate when lat/long coordinates are close
@@ -219,7 +210,7 @@ haversine n1 n2 = 2 * 6371 * asin (sqrt (sin (dLat/2)^2 + cos lat1' * cos lat2' 
 
 
 -- | Parse each line in graph.txt file
--- return the node index and newly created Node datatype 
+-- return the node index and newly created Node datatype
 parseLine :: T.Text -> (Int, Node)
 parseLine tStr = (nKey, node)
   where
@@ -227,11 +218,11 @@ parseLine tStr = (nKey, node)
     [coord, edges] = T.splitOn "*" info
     [yt, xt] = T.splitOn "&" coord
     edgeList = T.splitOn "," edges
-    nEdges = [(id_, wt) | dt <- edgeList, 
+    nEdges = [(id_, wt) | dt <- edgeList,
                         let [idVal, wVal] = T.splitOn ";" dt,
                         let id_ = extractInt $ decimal $ idVal,
                         let wt = extractDouble $ rational $ wVal]
-    
+
     nKey = extractInt $ decimal idx
     nCoord = (extractDouble $ rational yt, extractDouble $ rational xt)
     node = Node {idx = nKey, coord = nCoord, edges = nEdges}

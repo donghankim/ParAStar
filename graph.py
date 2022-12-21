@@ -131,14 +131,14 @@ def plot_path(place):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-g", type = str, help = "enter place name to download and generate graph data for")
-    parser.add_argument("-l",  type = str, help = "enter place name and path_to_path")
+    parser.add_argument("-p",  type = str, help = "enter graph to load (place name)")
     parser.add_argument("--debug", action = "store_true")
     args = parser.parse_args()
     
     if args.g:
         create_new_graph(args.g)
-    elif args.l:
-        plot_path(args.l) 
+    elif args.p:
+        plot_path(args.p) 
     elif args.debug:
         pdb.set_trace()
     else:
