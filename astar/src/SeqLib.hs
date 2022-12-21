@@ -135,7 +135,7 @@ calcGn cIdx sIdx nodeMap cameFrom gn
     gn' = gn + (snd . head $ filter ((\idx -> idx == cIdx).fst) (edges $ nodeMap M.! fIdx))
 
 
--- | Calculate hn (replace with Vincenty later)
+-- | Calculate hn 
 calcHn :: Node -> Node -> Double
 calcHn cNode tNode = vincenty (coord cNode) (coord tNode)
 
@@ -166,7 +166,7 @@ vincenty n1 n2 =
       sinU2 = sin u2 :: Double
       cosU2 = cos u2 :: Double
 
-  in iterateUntilClose 1e-12 5000 (\lambda ->
+  in iterateUntilClose 1e-12 10000 (\lambda ->
     let
         sinSigma = sqrt ((cosU2 * sin (lambda))**2 + (cosU1 * sinU2 - sinU1 * cosU2 * cos (lambda))**2) :: Double
         cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cos lambda :: Double

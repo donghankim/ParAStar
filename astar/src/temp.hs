@@ -32,97 +32,32 @@ nodeMap = M.fromList [(0, aa), (1, bb), (2, cc)]
 {-
 A* pseudo code: openList and closedSet can be modified!
 
-currNode = getMin openList
-if currNode == targetNode:
-  done!
-elif currNode in closedSet:
-  continue
-else:
-  get adjNode = edges currNode
+while openList:
+  currNode = getMin openList
+  remove currNode from openList
+  if currNode == targetNode:
+    done!
+  elif currNode in closedSet:
+    continue
+  else:
+    get adjNode = edges currNode
 
 
-  for node in adjNode:
-    if ni in closedSet:
-      continue
-    else:
-      fn = g(ni) + h(ni)
-      if fn < openList[ni]:
-        update openList
-        update cameFrom ni -> currNode
+    for node in adjNode:
+      if ni in closedSet:
+        continue
       else:
-        add ni to openList
-        add ni to cameFrom
+        fn = g(ni) + h(ni)
+        if fn < openList[ni]:
+          update openList
+          update cameFrom ni -> currNode
+        else:
+          add ni to openList
+          add ni to cameFrom
 
-  add currNode to closedSet
+    add currNode to closedSet
 -}
 
-
-{-
--- chat a* search
-import Data.IntMap (IntMap)
-import Data.IntSet (IntSet)
-import qualified Data.IntMap as IM
-import qualified Data.IntSet as IS
-import qualified Data.PQueue.Prio as PQ
-
-astar :: Node -> Node -> [Int]
-astar sourceNode targetNode = search IM.empty (PQ.singleton (heuristic sourceNode targetNode) sourceNode) IS.empty
-  where
-    search cameFrom openSet closedSet
-      | PQ.null openSet = [] -- No path found
-      | currentNode == targetNode = reconstructPath cameFrom targetNode -- Path found, reconstruct and return it
-      | otherwise = search updatedCameFrom updatedOpenSet updatedClosedSet
-      where
-        currentNode = PQ.findMin openSet
-        neighbors = edges currentNode
-        (updatedCameFrom, updatedOpenSet, updatedClosedSet) = foldl' updateNeighbor (cameFrom, openSet, closedSet) neighbors
-        updateNeighbor (cameFrom', openSet', closedSet') (neighborIdx, gCost)
-          | neighborIdx `IS.member` closedSet' = (cameFrom', openSet', closedSet') -- Skip this neighbor if it's already been processed
-          | otherwise =
-              let neighborNode = nodeMap IM.! neighborIdx
-                  tentativeGScore = gCost + (fst . coord $ currentNode)
-                  neighborGScore = (fst . coord $ neighborNode)
-                  fScore = tentativeGScore + heuristic neighborNode targetNode
-              in if tentativeGScore >= neighborGScore
-                   then (cameFrom', openSet', closedSet') -- This path is not a better one, skip it
-                   else (IM.insert neighborIdx currentNode cameFrom', PQ.insert fScore neighborNode openSet', closedSet')
-    reconstructPath cameFrom targetNode = search targetNode []
-      where
-        search currentNode path
-          | currentNode == sourceNode = (idx currentNode) : path
-          | otherwise = search (cameFrom IM.! (idx currentNode)) ((idx currentNode) : path)
-
-
-
--- chat for Vincentry 
-vincenty :: (Double, Double) -> (Double, Double) -> Double
-vincenty (lat1, lon1) (lat2, lon2) =
-  let a = 6378137 -- semi-major axis of the WGS-84 ellipsoid
-      b = 6356752.3142 -- semi-minor axis of the WGS-84 ellipsoid
-      f = (a - b) / a -- flattening of the WGS-84 ellipsoid
-      L = (lon2 - lon1) * pi / 180 -- difference in longitudes
-      U1 = atan ((1 - f) * tan (lat1 * pi / 180))
-      U2 = atan ((1 - f) * tan (lat2 * pi / 180))
-      sinU1 = sin U1
-      cosU1 = cos U1
-      sinU2 = sin U2
-      cosU2 = cos U2
-  in iterateUntilClose 1e-12 200 (\sigma ->
-    let sinSigma = sqrt ((cosU2 * sin (L))^2 + (cosU1 * sinU2 - sinU1 * cosU2 * cos (L))^2)
-        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cos L
-        sigma' = atan2 sinSigma cosSigma
-        sinAlpha = cosU1 * cosU2 * sin L / sinSigma
-        cosSqAlpha = 1 - sinAlpha^2
-        uSq = cosSqAlpha * ((a^2 - b^2) / b^2)
-        A = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))
-        B = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))
-    in (sigma, sigma', sinSigma, cosSigma, sinAlpha, cosSqAlpha, uSq, A, B)) 0
-  where
-    iterateUntilClose tolerance maxIterations f sigma =
-      let (result, next, _, _, _, _, _, _, _) = f sigma
-      in if abs (result - next) < tolerance || maxIterations == 0
-         then result
-        
 -- chat parllelizing IO
 
 The "L" refers to Data.ByteString.Lazy
