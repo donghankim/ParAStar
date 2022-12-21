@@ -14,7 +14,7 @@ import Data.Either
 import Data.Maybe (fromJust, isJust)
 import Data.Tuple (swap)
 
--- debug use
+-- debug use ii
 {-
 nn = Node {idx = (-1), coord = (1.2, 2.1), edges = []}
 
