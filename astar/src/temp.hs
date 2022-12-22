@@ -5,10 +5,9 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.IntSet as S
 import qualified Data.IntMap as M
--- import qualified Data.PQueue.Prio.Min as PQ
 import qualified Data.PQueue.Min as P
 
-import Data.Text.Read 
+import Data.Text.Read
 import Data.Either
 import Data.Maybe (fromJust, isNothing)
 
@@ -30,38 +29,10 @@ nodeMap = M.fromList [(0, aa), (1, bb), (2, cc)]
 
 
 {-
-A* pseudo code: openList and closedSet can be modified!
-
-while openList:
-  currNode = getMin openList
-  remove currNode from openList
-  if currNode == targetNode:
-    done!
-  elif currNode in closedSet:
-    continue
-  else:
-    get adjNode = edges currNode
-
-
-    for node in adjNode:
-      if ni in closedSet:
-        continue
-      else:
-        fn = g(ni) + h(ni)
-        if fn < openList[ni]:
-          update openList
-          update cameFrom ni -> currNode
-        else:
-          add ni to openList
-          add ni to cameFrom
-
-    add currNode to closedSet
--}
 
 -- chat parllelizing IO
-
 The "L" refers to Data.ByteString.Lazy
-One way to achieve this in Haskell is to use the parallel package. This package provides a parMap function, 
+One way to achieve this in Haskell is to use the parallel package. This package provides a parMap function,
 which allows you to perform a mapping operation in parallel by distributing the elements of the input list across a number of parallel threads.
 
 Here's an example of how you could use parMap to load a large text file in parallel:
@@ -84,7 +55,7 @@ readFileInChunks numThreads filePath = do
   let result = parMap rdeepseq L.toStrict chunks
   return result
 
-This function takes a file path and a number of threads as input, and returns a list of Strings representing the chunks of the file that were read in parallel. 
+This function takes a file path and a number of threads as input, and returns a list of Strings representing the chunks of the file that were read in parallel.
 To use this function, you would call it like this:
 
 chunks <- readFileInChunks numThreads filePath

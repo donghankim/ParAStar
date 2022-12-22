@@ -1,30 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SeqLib (seqSearch) where
+module Lib (
+    parAstar,
+    astar,
+    parseLine
+) where
 
 import System.IO
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.IntSet as S
 import qualified Data.IntMap as M
-import qualified Data.PQueue.Min as P
+import qualified Data.PQueue.Min as Q
 
+import Control.Parallel.Strategies
 import Data.Text.Read
 import Data.Either
 import Data.Maybe (fromJust, isJust)
-
--- debug use ii
-{-
-stack repl
-:set -fprint-evld-with-show
-nn = Node {idx = (-1), coord = (1.2, 2.1), edges = []}
-
-aa = M.fromList [(1,2.1), (2, 10)] :: M.IntMap Double
-foo idx aa = M.update (\x -> if x == 10.0 then Just 100 else Nothing) idx aa
-
-bb = P.fromList [(20,1), (0,5)]
-minVal = P.getMin bb
--}
 
 
 -- | Node datatype
@@ -38,31 +30,7 @@ data Node = Node { idx   :: Int,
 
 
 
--- | Initiate sequential A* search on
--- selected OpenStreetMap graph
-seqSearch :: IO [Int]
-seqSearch = do
-  putStrLn "*** Sequential A-Star Path Finder ***"
-  graphFile <-  putStr "Enter Graph .txt File: " *> hFlush stdout *> getLine
-  fp <- openFile ("data/" ++ graphFile) ReadMode
-  content <- TIO.hGetContents fp
-  start <- putStr "Enter Start Node Index: " *> hFlush stdout *> getLine
-  target <- putStr "Enter Destination Node Index: " *> hFlush stdout *> getLine
-
-  let nodeMap = M.fromList $ map (parseLine) (T.lines content)
-      sIdx = read start :: Int
-      tIdx = read target :: Int
-      openList = P.singleton (0.0, sIdx) :: P.MinQueue (Double, Int)
-      closedList = S.empty
-      cameFrom = M.empty :: M.IntMap Int
-      path = astar sIdx tIdx nodeMap openList closedList cameFrom
-
-  case path of
-       Nothing -> return ([])
-       _       -> return (fromJust path)
-
-
--- | Find shortest path using A* search
+-- | Find shortest path using A* search in parallel
 -- args: sIdx, tIdx, nodeMap, openList, closedList, cameFrom
 -- sIdx => start node idx
 -- tIdx => target node idx
@@ -71,15 +39,48 @@ seqSearch = do
 -- closedSet => IntSet <idx>
 -- cameFrom => IntMap <fromIdx, toIdx>
 -- return: path :: Maybe [Int]
-astar :: Int -> Int -> M.IntMap Node -> P.MinQueue (Double, Int) -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
+parAstar :: Int -> Int -> M.IntMap Node -> Q.MinQueue (Double, Int) -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
+parAstar sIdx tIdx nodeMap openList closedSet cameFrom
+  | Q.null openList         = Nothing
+  | cIdx == tIdx            = Just $ reconstructPath sIdx tIdx cameFrom
+  | S.member cIdx closedSet = parAstar sIdx tIdx nodeMap openList' closedSet cameFrom
+  | otherwise               = parAstar sIdx tIdx nodeMap openList'' closedSet' cameFrom''
+  where
+    cIdx = snd (Q.findMin openList)
+    openList' = Q.deleteMin openList
+    closedSet' = S.insert cIdx closedSet
+    cNode = nodeMap M.! cIdx
+
+    -- calculate f(n) = g(n) + h(n)
+    adjNodes = filter ((\adjIdx -> S.notMember adjIdx closedSet').fst) (edges cNode)
+    cameFrom' = updateFrom cameFrom [(adjIdx, cIdx) | (adjIdx, _) <- adjNodes]
+    fcost = parMap rdeepseq (\(adjIdx, _) -> (adjIdx, calcFn adjIdx sIdx tIdx nodeMap cameFrom')) adjNodes
+
+    -- update shared resource
+    combinedOpen = updateOpen openList' fcost
+    updatedNodes = map snd (Q.elemsU $ fst combinedOpen)
+    cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` updatedNodes then cIdx else old) cameFrom'
+    openList'' = Q.union (fst combinedOpen) (snd combinedOpen)
+
+
+-- | Find shortest path using A* search sequential
+-- args: sIdx, tIdx, nodeMap, openList, closedList, cameFrom
+-- sIdx => start node idx
+-- tIdx => target node idx
+-- nodeMap => IntMap <idx, Node>
+-- openList => MinPQueue <fn, idx>
+-- closedSet => IntSet <idx>
+-- cameFrom => IntMap <fromIdx, toIdx>
+-- return: path :: Maybe [Int]
+astar :: Int -> Int -> M.IntMap Node -> Q.MinQueue (Double, Int) -> S.IntSet -> M.IntMap Int ->  Maybe [Int]
 astar sIdx tIdx nodeMap openList closedSet cameFrom
-  | P.null openList         = Nothing
+  | Q.null openList         = Nothing
   | cIdx == tIdx            = Just $ reconstructPath sIdx tIdx cameFrom
   | S.member cIdx closedSet = astar sIdx tIdx nodeMap openList' closedSet cameFrom
   | otherwise               = astar sIdx tIdx nodeMap openList'' closedSet' cameFrom''
   where
-    cIdx = snd (P.findMin openList)
-    openList' = P.deleteMin openList
+    cIdx = snd (Q.findMin openList)
+    openList' = Q.deleteMin openList
     closedSet' = S.insert cIdx closedSet
     cNode = nodeMap M.! cIdx
 
@@ -90,23 +91,42 @@ astar sIdx tIdx nodeMap openList closedSet cameFrom
 
     -- update shared resource
     combinedOpen = updateOpen openList' fcost
-    updatedNodes = map snd (P.elemsU $ fst combinedOpen)
+    updatedNodes = map snd (Q.elemsU $ fst combinedOpen)
     cameFrom'' = M.mapWithKey (\idx old -> if idx `elem` updatedNodes then cIdx else old) cameFrom'
-    openList'' = P.union (fst combinedOpen) (snd combinedOpen)
+    openList'' = Q.union (fst combinedOpen) (snd combinedOpen)
+
+
+-- | parallel calculation
+parCalcFn :: Int -> Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double
+parCalcFn cIdx sIdx tIdx nodeMap cameFrom =
+  let (hn, gn) = runEval $ do {
+    ; hn <- rpar $ calcHn (nodeMap M.! cIdx) (nodeMap M.! tIdx)
+    ; gn <- rpar $ calcGn cIdx sIdx nodeMap cameFrom 0.0
+    ; return (hn, gn)
+  }
+  in gn + hn
+
+-- | Sequential calculation
+calcFn :: Int -> Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double
+calcFn cIdx sIdx tIdx nodeMap cameFrom =
+  let
+    gn = calcGn cIdx sIdx nodeMap cameFrom 0.0
+    hn = calcHn (nodeMap M.! cIdx) (nodeMap M.! tIdx)
+  in gn + hn
 
 
 -- | Update openList
-updateOpen :: P.MinQueue (Double, Int) -> [(Int, Double)] -> (P.MinQueue (Double, Int), P.MinQueue (Double, Int))
+updateOpen :: Q.MinQueue (Double, Int) -> [(Int, Double)] -> (Q.MinQueue (Double, Int), Q.MinQueue (Double, Int))
 updateOpen openList fcost =
   let
-    currentNodes = map snd (P.elemsU openList)
+    currentNodes = map snd (Q.elemsU openList)
     newNodes = [(fn, idx) | (idx, fn) <- fcost, idx `notElem` currentNodes]
-    newOpen = P.fromList newNodes
+    newOpen = Q.fromList newNodes
 
-    temp = P.partition (\(fn, idx) -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
+    temp = Q.partition (\(fn, idx) -> let fn' = lookup idx fcost in (isJust fn' && fromJust fn' < fn)) openList
     sameOpen = snd temp
-    updatedOpen = P.map (\(_, idx) -> (fromJust $ lookup idx fcost, idx)) (fst temp)
-  in if P.null openList then (P.union newOpen updatedOpen, sameOpen) else (P.union newOpen updatedOpen, sameOpen)
+    updatedOpen = Q.map (\(_, idx) -> (fromJust $ lookup idx fcost, idx)) (fst temp)
+  in if Q.null openList then (Q.union newOpen updatedOpen, sameOpen) else (Q.union newOpen updatedOpen, sameOpen)
 
 
 -- | Update cameFrom
@@ -115,14 +135,6 @@ updateFrom cameFrom adjNodes = foldl f cameFrom adjNodes
   where
     f cameFrom (from,to) = if M.member from cameFrom then cameFrom else M.insert from to cameFrom
 
-
--- | Calculate fn
-calcFn :: Int -> Int -> Int -> M.IntMap Node -> M.IntMap Int -> Double
-calcFn cIdx sIdx tIdx nodeMap cameFrom =
-  let
-    gn = calcGn cIdx sIdx nodeMap cameFrom 0.0
-    hn = calcHn (nodeMap M.! cIdx) (nodeMap M.! tIdx)
-  in gn + hn
 
 
 -- | Calculate gn
@@ -135,7 +147,7 @@ calcGn cIdx sIdx nodeMap cameFrom gn
     gn' = gn + (snd . head $ filter ((\idx -> idx == cIdx).fst) (edges $ nodeMap M.! fIdx))
 
 
--- | Calculate hn 
+-- | Calculate hn
 calcHn :: Node -> Node -> Double
 calcHn cNode tNode = vincenty (coord cNode) (coord tNode)
 
@@ -236,17 +248,3 @@ extractDouble :: Either String (Double, T.Text) -> Double
 extractDouble val
   | isRight val = fst $ fromRight (0, "") val
   | otherwise = error "[.txt data] Node long/lat is corrupted..."
-
-
-
-
-
-
-
-
-
-
-
-
-
-
