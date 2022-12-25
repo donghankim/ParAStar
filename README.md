@@ -85,8 +85,8 @@ cd ParAStar
 python graph.py -p "Columbia University"
 ```
 <p align="center">
-  <img src="media/ColumbiaUniversity.png"  width="500"/>
-  <img src="media/seq_example.png"  width="500"/>
+  <img src="media/ColumbiaUniversity.png"  width="400"/>
+  <img src="media/seq_example.png"  width="400"/>
 </p>
 
 ## Resources
