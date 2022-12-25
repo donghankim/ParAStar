@@ -64,11 +64,11 @@ def createAdj(G, place):
     
     
     # save graph .png
-    fig, ax = ox.plot_graph(G, figsize = (20,20), show = False, save = False, close = False, node_color = "r", edge_color = 'g', filepath = PNG_PATH)    
+    fig, ax = ox.plot_graph(G, figsize = (20,20), show = False, save = False, close = False, bgcolor = "w", node_color = "r", edge_color = "g", filepath = PNG_PATH)    
     for node in tqdm.tqdm(gdf_nodes.iterrows(), desc = "adding node labels to .png"):
         text = osm_hm[node[0]]
         c = node[1]["geometry"].centroid
-        ax.annotate(text, (c.x, c.y), size = 12, c="white")
+        ax.annotate(text, (c.x, c.y), size = 12, c="black")
     
     # plt.show()
     plt.savefig(f'{PNG_PATH}', dpi = 600)
@@ -123,7 +123,7 @@ def plot_path(place):
     path = [osm_hm[int(idx)] for idx in lines]    
     
     # plot path
-    fig, ax = ox.plot_graph_route(G, path, show = False, save = False, close = False, node_size = 5, node_color = "r", edge_color = 'g', route_color='b')    
+    fig, ax = ox.plot_graph_route(G, path, show = False, save = False, close = False, node_size = 5, bgcolor = "w", node_color = "r", edge_color = 'g', route_color='b')    
     plt.show()
 
 
