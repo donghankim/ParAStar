@@ -41,6 +41,9 @@ To run the graph.py script, you will need to install all the pip dependencies, u
 git clone git@github.com:donghankim/ParAStar.git
 cd ParAStar
 
+# if virtualenv is not already installed
+pip3 install --user virtualenv
+
 # create python vevn & install dependencies
 python3 -m virtualenv venv
 pip3 install -r requirements.txt
@@ -48,10 +51,10 @@ pip3 install -r requirements.txt
 # activate venv
 source venv/bin/activate
 
-# install "Columbia University" graph data
+# download "Columbia University" graph data
 python graph.py -g "Columbia University"
 ```
-The OSM data will be installed in <strong>astar/data</strong> folder. The .txt file is used by the Haskell application to run A* search, whilst the .pickle and .graphml files are used for plotting the shortest path.
+The example above downloads the "Columbia University" map to run A* search on. However, any other location/place may be downloaded by substituting the "Columbia University" string after the <strong>-g</strong> flag before running the python script. All OSM data will be installed in the <strong>astar/data</strong> folder. The .txt file is used by the Haskell application to run A* search, whilst the .pickle and .graphml files are used for plotting the shortest path.
 
 All nodes have an OSM id that is required to plot a given path. However, because the id's are complicated, each node is given an arbitrary index that starts from 0. This arbitrary index is mapped to the OSM id using a hashmap stored in the .pickle file. You can refer to the [OSM website](https://www.openstreetmap.org/) to find a certain place/location that you want to download and run A* search on.
 
